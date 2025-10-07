@@ -7,7 +7,13 @@ class ReactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reaction
-        fields = ['id', 'user_email', 'post', 'comment', 'reaction_type', 'created_at']
+        fields = ['id', 
+                  'user_email', 
+                  'post', 
+                  'comment', 
+                  'reaction_type', 
+                  'created_at'
+                ]
         read_only_fields = ['user_email', 'created_at']
 
         def get_reacted_on(self, obj):
