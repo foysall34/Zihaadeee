@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     # app 
     'myapp' ,
     'account',
+    'post',
+    'User_Friend',
 
     # framework 
     'rest_framework',

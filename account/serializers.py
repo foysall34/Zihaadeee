@@ -1,18 +1,18 @@
 # accounts/serializers.py
 
 from rest_framework import serializers
-from .models import User
+from .models import User, UserProfile
 from .utils import generate_otp, send_otp_email
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     # Make the photo field required for registration
-    photo = serializers.ImageField(required=True)
+    profile_photo = serializers.ImageField(required=True)
 
     class Meta:
         model = User
         # Add 'photo' to the fields list
-        fields = ['email', 'full_name', 'photo', 'password', 'password2']
+        fields = ['email', 'full_name', 'profile_photo', 'password', 'password2']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -36,7 +36,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         # Data to be used for creating or updating the user
         user_defaults = {
             'full_name': validated_data.get('full_name'),
-            'photo': validated_data.get('photo'),
+            'profile_photo': validated_data.get('profile_photo'),
         }
 
         # Creates a new user or updates an existing unverified one
@@ -76,3 +76,13 @@ class ResetPasswordSerializer(serializers.Serializer):
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
+    
+
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['id', 'user_email', 'bio', 'cover_photo']
