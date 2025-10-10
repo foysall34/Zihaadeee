@@ -2,15 +2,20 @@
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status,permissions
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
-    UserRegisterSerializer, VerifyOTPSerializer, LoginSerializer,
-    ForgotPasswordSerializer, ResetPasswordSerializer
+    UserRegisterSerializer, 
+    VerifyOTPSerializer, 
+    LoginSerializer,
+    ForgotPasswordSerializer, 
+    ResetPasswordSerializer,
+    UserProfileSerializer
 )
-from .models import User
+from .models import User,UserProfile
 from .utils import generate_otp, send_otp_email
+
 
 class UserRegisterView(APIView):
     def post(self, request):
@@ -114,4 +119,23 @@ class ResetPasswordView(APIView):
                     return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
             except User.DoesNotExist:
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+
+class UserProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
