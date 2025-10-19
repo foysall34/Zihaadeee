@@ -8,6 +8,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('myapp/' ,  include('myapp.urls')),
     path('auth/' ,  include('account.urls')),
+    path('content/' ,  include('post.urls')),
+    path('friend/' ,  include('User_Friend.urls')),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

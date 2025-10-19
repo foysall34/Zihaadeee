@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, UserProfile
 
 # This class defines how the User model will be displayed in the Django admin panel.
 class UserAdmin(BaseUserAdmin):
@@ -37,3 +37,6 @@ class UserAdmin(BaseUserAdmin):
 
 # Register your custom User model with the custom UserAdmin.
 admin.site.register(User, UserAdmin)
+
+
+admin.site.register(UserProfile)
