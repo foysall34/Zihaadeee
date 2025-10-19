@@ -3,15 +3,16 @@
 from rest_framework import serializers
 from .models import User
 from .utils import generate_otp, send_otp_email
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+import re
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
-    # Make the photo field required for registration
     photo = serializers.ImageField(required=True)
 
     class Meta:
         model = User
-        # Add 'photo' to the fields list
         fields = ['email', 'full_name', 'photo', 'password', 'password2']
         extra_kwargs = {
             'password': {'write_only': True}
@@ -23,6 +24,29 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         """
         if User.objects.filter(email=value, is_verified=True).exists():
             raise serializers.ValidationError("An active account with this email already exists.")
+        return value
+
+    def validate_password(self, value):
+        """
+        Validate password strength.
+        """
+        if len(value) < 6:
+            raise serializers.ValidationError("Password must be at least 6 characters long.")
+        if not re.search(r'[A-Z]', value):
+            raise serializers.ValidationError("Password must contain at least one uppercase letter.")
+        if not re.search(r'[a-z]', value):
+            raise serializers.ValidationError("Password must contain at least one lowercase letter.")
+        if not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("Password must contain at least one digit.")
+        if not re.search(r'[@#$%^&+=!]', value):
+            raise serializers.ValidationError("Password must contain at least one special character.")
+        
+        # You can also leverage Django's built-in password validators
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(list(e.messages))
+            
         return value
 
     def validate(self, attrs):
@@ -44,15 +68,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             email=email, defaults=user_defaults
         )
 
-        # Always set/reset the password and send a new OTP for verification
         otp = generate_otp()
         user.otp = otp
         user.set_password(validated_data['password'])
         user.save()
         
         send_otp_email(user.email, otp)
-
         return user
+    
+
 
 class VerifyOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
