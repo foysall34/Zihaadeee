@@ -2,22 +2,21 @@
 
 from django.urls import path
 
-from .views import (
-    UserRegisterView,
-    VerifyOTPView, 
-    ResendOTPView, 
-    LoginView,
-    ForgotPasswordView, 
-    ResetPasswordView,
-    UserProfileView
-)
+from .views import register_user, verify_otp, login_user, resend_otp , UserProfileView , forgot_password , verify_forgot_otp , reset_password
+
 
 urlpatterns = [
-    path('register/', UserRegisterView.as_view(), name='register'),
-    path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
-    path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
-    path('login/', LoginView.as_view(), name='login'),
-    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
-    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
+    path('register/', register_user, name='register'),
+    path('verify-otp/', verify_otp, name='verify_otp'),
+    path('login/', login_user, name='login'),
+    path('resend-otp/', resend_otp, name='resend_otp'),
+    
+     # Forgot Password Flow
+    path('forgot-password/', forgot_password, name='forgot_password'),
+    path('verify-forgot-otp/', verify_forgot_otp, name='verify_forgot_otp'),
+    path('reset-password/', reset_password, name='reset_password'),
+
+
+
     path('profile/', UserProfileView.as_view(), name='user-profile'),
 ]

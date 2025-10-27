@@ -51,3 +51,6 @@ class Reaction(models.Model):
     def __str__(self):
         target = self.post or self.comment
         return f"{self.user.email} reacted '{self.reaction_type}' to {target}"
+
+
+
