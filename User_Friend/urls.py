@@ -1,10 +1,12 @@
 from django.urls import path
 from .views import (
     FriendRequestViewSet, FriendListView, UnfriendView, 
-    BlockUserView, BlockedListView, FriendDetailView
+    BlockUserView, BlockedListView, FriendDetailView ,FriendRequestViewSet
 )
 
+
 friend_request_list = FriendRequestViewSet.as_view({
+    'get': 'list',
     'post': 'create',
 })
 
@@ -13,10 +15,11 @@ friend_request_detail = FriendRequestViewSet.as_view({
     'delete': 'destroy',
 })
 
+
 urlpatterns = [
     # Friend Request
-    path('friend-requests/', friend_request_list, name='friend-request-list'),
-    path('friend-requests/<int:pk>/', friend_request_detail, name='friend-request-detail'),
+    path('friend-requests/', friend_request_list, name='friend-requests-list'),
+    path('friend-requests/<int:pk>/', friend_request_detail, name='friend-request-detail'),# put , delete , get 
     
     # Friends
     path('all_friends/', FriendListView.as_view(), name='friend-list'),

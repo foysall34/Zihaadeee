@@ -1,5 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -31,7 +34,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('female', 'Female'),
         ('other', 'Other'),
     )
-
+    ROLE_CHOICES = (
+        ('user', 'User'),
+        ('celebrity', 'Celebrity'),
+     
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     profile_photo = models.ImageField(upload_to='user_photos/')
     email = models.EmailField(unique=True)
     full_name = models.CharField(max_length=255, blank=True, null=True)
@@ -57,10 +65,34 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     bio = models.TextField(blank=True, null=True)
     cover_photo = models.ImageField(upload_to='cover_photos/', blank=True, null=True)
-    
+    work = models.TextField(default='write work-place')
+    education = models.TextField(default='institue-name')
+    home_town = models.CharField(max_length=100 , null= True , blank=True)
+    web_link = models.CharField(max_length=1500 , null= True , blank= True)
+    profile_link =models.CharField(max_length=2000 , null= True , blank=True)
+        
 
 
 
 
     def __str__(self):
         return f"{self.user.email}'s profile"
+
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """
+    When a new user is created, automatically create a related UserProfile
+    and generate profile_link like: https://yourdomain.com/user/<user_id>/
+    """
+    if created:
+        domain = "https://yourdomain.com"  
+        profile = UserProfile.objects.create(
+            user=instance,
+            work='write work-place',
+            education='institue-name',
+            home_town='',
+            web_link='',
+        )
+        profile.profile_link = f"{domain}/user/{instance.id}/"
+        profile.save()

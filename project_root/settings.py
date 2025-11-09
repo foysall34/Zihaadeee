@@ -1,5 +1,3 @@
-
-
 import os
 from pathlib import Path
 from decouple import config
@@ -7,23 +5,16 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-$5h3i2#$qg#58b1)j00cluqvel2&rp_e^fp**(8f&xyl)!$l71'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
-
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -33,11 +24,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # app 
-    'myapp' ,
     'account',
     'post',
     'User_Friend',
-
     # framework 
     'rest_framework',
 ]
@@ -74,6 +63,10 @@ TEMPLATES = [
 
 # settings.py
 AUTH_USER_MODEL = 'account.User'
+
+
+
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -93,7 +86,22 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),     
+    "ROTATE_REFRESH_TOKENS": True,                 
+    "BLACKLIST_AFTER_ROTATION": True,                
+    
+ 
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
 
+}
+CSRF_TRUSTED_ORIGINS = [
+
+    "https://tripersonal-homelessly-felecia.ngrok-free.app"
+]
 
 
 WSGI_APPLICATION = 'project_root.wsgi.application'

@@ -35,7 +35,7 @@ def verify_otp(request):
     serializer = VerifyOTPSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "OTP verified successfully. You can now login."}, status=status.HTTP_200_OK)
+        return Response({"data": "OTP verified successfully. You can now login."}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -55,8 +55,10 @@ def login_user(request):
     refresh = RefreshToken.for_user(user)
     return Response({
         "message": "Login successful!",
+        "email" : user.email ,
+            "refresh": str(refresh),
         "access": str(refresh.access_token),
-        "refresh": str(refresh),
+     
     })
 
 
@@ -67,7 +69,7 @@ def resend_otp(request):
     serializer = ResendOTPSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "A new OTP has been sent to your email."}, status=status.HTTP_200_OK)
+        return Response({"data": "A new OTP has been sent to your email."}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -80,7 +82,7 @@ def forgot_password(request):
     serializer = ForgotPasswordSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "Password reset OTP sent to your email."}, status=status.HTTP_200_OK)
+        return Response({"data": "Password reset OTP sent to your email."}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -91,7 +93,7 @@ def verify_forgot_otp(request):
     serializer = VerifyForgotOTPSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "OTP verified successfully. You can now reset your password."}, status=status.HTTP_200_OK)
+        return Response({"data": "OTP verified successfully. You can now reset your password."}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -102,7 +104,7 @@ def reset_password(request):
     serializer = ResetPasswordSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "Password reset successful!"}, status=status.HTTP_200_OK)
+        return Response({"data": "Password reset successful!"}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -110,15 +112,28 @@ def reset_password(request):
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    # -------- GET Profile --------
     def get(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # -------- PUT (Full Update) --------
     def put(self, request):
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # -------- PATCH (Partial Update) --------
+    def patch(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+

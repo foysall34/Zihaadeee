@@ -1,5 +1,3 @@
-# accounts/serializers.py
-
 import random, re
 from django.core.mail import send_mail
 from django.conf import settings
@@ -14,7 +12,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'full_name', 'profile_photo', 'gender', 'date_of_birth', 'password']
+        fields = ['email', 'full_name',  'password']
 
     def validate_password(self, value):
         if len(value) < 8:
@@ -152,7 +150,7 @@ class VerifyForgotOTPSerializer(serializers.Serializer):
 
     def save(self):
         user = User.objects.get(email=self.validated_data['email'])
-        user.otp = None  # clear otp once verified
+        user.otp = None 
         user.save()
         return user
 
@@ -199,4 +197,4 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user_email', 'bio', 'cover_photo']
+        fields = ['id', 'user_email', 'bio', 'cover_photo' , 'work', 'education', 'web_link' , 'home_town' , 'profile_link']
