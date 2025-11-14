@@ -1,7 +1,9 @@
 from django.urls import path
+
+from User_Friend.models import UnblockUserView
 from .views import (
     FriendRequestViewSet, FriendListView, UnfriendView, 
-    BlockUserView, BlockedListView, FriendDetailView ,FriendRequestViewSet
+    BlockUserView, BlockedListView, FriendDetailView ,FriendRequestViewSet , FollowView , FollowerListView , FollowingListView
 )
 
 
@@ -29,4 +31,18 @@ urlpatterns = [
     # Block
     path('block/', BlockUserView.as_view(), name='block-user'),
     path('blocked/', BlockedListView.as_view(), name='blocked-list'),
+    path('unblock/<int:blocked_user_id>/', UnblockUserView.as_view(), name='unblock-user'),
+
+
+    # Follow
+    path('follow/', FollowView.as_view(), name='follow-unfollow'),
+
+   #Followers and Following list
+    path('followers/', FollowerListView.as_view(), name='followers'),
+    path('following/', FollowingListView.as_view(), name='following'),
+
+
 ]
+
+
+

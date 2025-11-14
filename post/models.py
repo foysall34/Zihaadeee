@@ -38,19 +38,26 @@ class Comment(models.Model):
         return f"Comment by {self.user.email} on {self.post}"
 
 
-class Reaction(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reactions')
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True, blank=True, related_name='post_reactions')
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, null=True, blank=True, related_name='comment_reactions')
+
+
+
+class PostReaction(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='post_reactions')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='reactions')
     reaction_type = models.CharField(max_length=20, choices=REACTION_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'post', 'comment')
-
-    def __str__(self):
-        target = self.post or self.comment
-        return f"{self.user.email} reacted '{self.reaction_type}' to {target}"
+        unique_together = ('user', 'post')
 
 
+
+class CommentReaction(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comment_reactions')
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='reactions')
+    reaction_type = models.CharField(max_length=20, choices=REACTION_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'comment')
 

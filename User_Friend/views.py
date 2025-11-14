@@ -242,3 +242,78 @@ class FriendDetailView(APIView):
             
         except UserProfile.DoesNotExist:
             return Response({'detail': 'User profile not found!'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+
+
+
+# 
+# Follow & Unfollow Functionality can be added similarly.
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from django.db.models import Q
+from .models import Follow
+from .serializers import FollowSerializer
+
+class FollowView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Follow another user"""
+        following_id = request.data.get('user_id')
+
+        if not following_id:
+            return Response({'detail': 'user_id field is required!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.user.id == int(following_id):
+            return Response({'detail': 'You cannot follow yourself!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check already following
+        if Follow.objects.filter(follower=request.user, following_id=following_id).exists():
+            return Response({'detail': 'Already following this user!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        follow = Follow.objects.create(follower=request.user, following_id=following_id)
+        serializer = FollowSerializer(follow)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        """Unfollow a user"""
+        following_id = request.data.get('user_id')
+
+        if not following_id:
+            return Response({'detail': 'user_id field is required!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            follow = Follow.objects.get(follower=request.user, following_id=following_id)
+            follow.delete()
+            return Response({'detail': 'Unfollowed successfully!'}, status=status.HTTP_200_OK)
+        except Follow.DoesNotExist:
+            return Response({'detail': 'You are not following this user!'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+
+
+
+
+# Follwer list and Following list views can also be added similarly.
+class FollowerListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        followers = Follow.objects.filter(following=request.user)
+        serializer = FollowSerializer(followers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class FollowingListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        following = Follow.objects.filter(follower=request.user)
+        serializer = FollowSerializer(following, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
