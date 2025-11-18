@@ -98,6 +98,8 @@ class PostSerializer(serializers.ModelSerializer):
     reactions_count = serializers.IntegerField(source='reactions.count', read_only=True)
     my_reaction = serializers.SerializerMethodField()
 
+    media = serializers.CharField(read_only=True)
+
     class Meta:
         model = Post
         fields = [
@@ -107,12 +109,13 @@ class PostSerializer(serializers.ModelSerializer):
             'author_photo',
             'content',
             'media_type',
-            'media',
+            'media',            # Cloudinary URL returned here
             'created_at',
             'comments_count',
             'reactions_count',
             'my_reaction',
         ]
+        read_only_fields = ['author']
 
     def get_my_reaction(self, obj):
         request = self.context.get('request')
@@ -121,3 +124,4 @@ class PostSerializer(serializers.ModelSerializer):
 
         reaction = PostReaction.objects.filter(post=obj, user=request.user).first()
         return reaction.reaction_type if reaction else None
+

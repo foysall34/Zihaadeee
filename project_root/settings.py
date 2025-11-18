@@ -4,6 +4,11 @@ from decouple import config
 from dotenv import load_dotenv 
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+import cloudinary.uploader
+import cloudinary.api
+
+load_dotenv()
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,6 +29,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # app 
+    'cloudinary',
+    'cloudinary_storage',
+    'stories',
     'account',
     'post',
     'User_Friend',
@@ -74,6 +82,32 @@ REST_FRAMEWORK = {
  
 }
 
+cloudinary.config( 
+  cloud_name = config("CLOUD_NAME"), 
+  api_key = config("CLOUD_API_KEY"), 
+  api_secret = config("CLOUD_API_SECRET") ,
+  secure = True
+)
+
+print("Cloudinary Configured:", cloudinary.config().cloud_name)
+
+
+CELERY_BEAT_SCHEDULE = {
+    "delete_expired_stories": {
+        "task": "stories.tasks.delete_expired_stories",
+        "schedule": 600,  # runs every 10 minutes
+    }
+}
+
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'
+
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+
+
 # Email Configuration from .env file
 EMAIL_BACKEND = config('EMAIL_BACKEND')
 EMAIL_HOST = config('EMAIL_HOST')
@@ -83,7 +117,11 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+
+
+STATIC_URL = 'static/'
 
 
 SIMPLE_JWT = {
@@ -149,12 +187,10 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-import os
-STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 

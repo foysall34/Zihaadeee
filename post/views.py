@@ -3,13 +3,34 @@ from .models import Post, Comment
 from .serializers import PostSerializer, CommentSerializer
 
 
+from cloudinary.uploader import upload
+
+
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all().order_by('-created_at')
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        request = self.request
+        
+        media_file = request.FILES.get("media")
+        print("Uploaded media file:", media_file)
+        media_url = None
+
+        if media_file:
+            result = upload(
+                media_file,
+                folder="posts/",
+                resource_type="auto"
+            )
+            media_url = result.get("secure_url")
+
+        serializer.save(
+            author=request.user,
+            media=media_url
+        )
+
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -153,7 +174,7 @@ class NewsFeedView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Step 1: User যাদের follow করে তাদের ID লিস্ট
+      
         following_ids = Follow.objects.filter(
             follower=request.user
         ).values_list("following_id", flat=True)
@@ -161,7 +182,7 @@ class NewsFeedView(APIView):
 
         user_ids = list(following_ids) + [request.user.id]
 
-        # Step 3: posts fetch with optimization
+
         posts = (
             Post.objects.filter(author__id__in=user_ids)
             .select_related("author")              # get author in single query
@@ -170,12 +191,11 @@ class NewsFeedView(APIView):
             .order_by("-created_at")               # latest first
         )
 
-        # Step 4: Pagination
         paginator = PageNumberPagination()
-        paginator.page_size = 10  # প্রতি পেজে ১০টা post
+        paginator.page_size = 10 
         result_page = paginator.paginate_queryset(posts, request)
 
-        # Step 5: Serialize with request context (for my_reaction)
+     
         serializer = PostSerializer(result_page, many=True, context={'request': request})
 
         return paginator.get_paginated_response(serializer.data)

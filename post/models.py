@@ -1,5 +1,6 @@
 from django.db import models
 from account.models import User
+from cloudinary.models import CloudinaryField
 
 MEDIA_TYPES = [
     ('image', 'Image'),
@@ -19,7 +20,7 @@ REACTION_CHOICES = [
 class Post(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPES, default='image')
-    media = models.FileField(upload_to='post_media/', blank=True, null=True)
+    media = models.URLField(blank=True, null=True) 
     content = models.TextField(blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

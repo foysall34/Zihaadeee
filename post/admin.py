@@ -1,5 +1,10 @@
 from django.contrib import admin
-from .models import Post, Comment
+from .models import Post, Comment , PostReaction, CommentReaction
+
+
+
+admin.site.register(PostReaction)
+admin.site.register(CommentReaction)
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
