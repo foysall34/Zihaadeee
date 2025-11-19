@@ -109,8 +109,14 @@ def reset_password(request):
 
 
 
+
+
+from rest_framework.parsers import MultiPartParser, FormParser
+from cloudinary.uploader import upload as cloudinary_upload
+
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]   
 
     # -------- GET Profile --------
     def get(self, request):
@@ -121,6 +127,18 @@ class UserProfileView(APIView):
     # -------- PUT (Full Update) --------
     def put(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
+
+        # handle profile_photo upload
+        file = request.FILES.get("profile_photo")
+        if file:
+            upload_result = cloudinary_upload(
+                file,
+                folder="user_profiles/",
+                resource_type="auto"
+            )
+            profile.profile_photo = upload_result.get("secure_url")
+            profile.save()
+
         serializer = UserProfileSerializer(profile, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -130,10 +148,22 @@ class UserProfileView(APIView):
     # -------- PATCH (Partial Update) --------
     def patch(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
+
+        # handle profile_photo upload
+        file = request.FILES.get("profile_photo")
+        if file:
+            upload_result = cloudinary_upload(
+                file,
+                folder="user_profiles/",
+                resource_type="auto"
+            )
+            profile.profile_photo = upload_result.get("secure_url")
+            profile.save()
+
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
 

@@ -93,7 +93,7 @@ from .models import PostReaction
 
 class PostSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source='author.full_name', read_only=True)
-    author_photo = serializers.ImageField(source='author.profile_photo', read_only=True)
+    author_photo = serializers.CharField(source='author.profile_photo', read_only=True)
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
     reactions_count = serializers.IntegerField(source='reactions.count', read_only=True)
     my_reaction = serializers.SerializerMethodField()
