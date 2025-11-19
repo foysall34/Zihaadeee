@@ -92,12 +92,15 @@ cloudinary.config(
 print("Cloudinary Configured:", cloudinary.config().cloud_name)
 
 
+
+
 CELERY_BEAT_SCHEDULE = {
     "delete_expired_stories": {
         "task": "stories.tasks.delete_expired_stories",
-        "schedule": 600,  # runs every 10 minutes
+        "schedule": 600,  # every 10 min
     }
 }
+
 
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/1'

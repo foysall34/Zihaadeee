@@ -187,13 +187,6 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 
 
-
-
-
-
-
-
-
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_photo = serializers.CharField(read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
