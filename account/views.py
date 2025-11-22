@@ -124,7 +124,7 @@ class UserProfileView(APIView):
         serializer = UserProfileSerializer(profile)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # -------- PUT (Full Update) --------
+    # -------- PUT  --------
     def put(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
 
@@ -145,7 +145,7 @@ class UserProfileView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # -------- PATCH (Partial Update) --------
+    # -------- PATCH  --------
     def patch(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
 

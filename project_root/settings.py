@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'account',
     'post',
     'User_Friend',
+    'notification',
     # framework 
     'rest_framework',
 ]

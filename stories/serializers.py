@@ -40,6 +40,10 @@ class StorySerializer(serializers.ModelSerializer):
         return story
 
 
+
+
+
+
 class StoryListSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source="author.full_name", read_only=True)
     author_photo = serializers.ImageField(source="author.profile_photo", read_only=True)
