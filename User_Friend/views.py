@@ -258,6 +258,8 @@ from rest_framework import status
 from django.db.models import Q
 from .models import Follow
 from .serializers import FollowSerializer
+from notification.utils import create_and_push_notification
+
 
 class FollowView(APIView):
     permission_classes = [IsAuthenticated]
@@ -276,8 +278,23 @@ class FollowView(APIView):
         if Follow.objects.filter(follower=request.user, following_id=following_id).exists():
             return Response({'detail': 'Already following this user!'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Create follow relation
         follow = Follow.objects.create(follower=request.user, following_id=following_id)
         serializer = FollowSerializer(follow)
+
+        # ⭐ SEND NOTIFICATION (ONLY FOLLOW)
+        followed_user = follow.following
+        if followed_user != request.user:
+            create_and_push_notification(
+                receiver=followed_user,
+                sender=request.user,
+                action_type="follow",
+                message=f"{request.user.full_name} started following you",
+                target_type="user",
+                target_id=followed_user.id,
+                extra_data={"user_id": followed_user.id}
+            )
+
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request):
@@ -291,6 +308,7 @@ class FollowView(APIView):
             follow = Follow.objects.get(follower=request.user, following_id=following_id)
             follow.delete()
             return Response({'detail': 'Unfollowed successfully!'}, status=status.HTTP_200_OK)
+
         except Follow.DoesNotExist:
             return Response({'detail': 'You are not following this user!'}, status=status.HTTP_404_NOT_FOUND)
 

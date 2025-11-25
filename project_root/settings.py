@@ -15,13 +15,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-$5h3i2#$qg#58b1)j00cluqvel2&rp_e^fp**(8f&xyl)!$l71'
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
 
 INSTALLED_APPS = [
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # app 
+
     'cloudinary',
     'cloudinary_storage',
     'stories',
@@ -90,8 +91,6 @@ cloudinary.config(
   secure = True
 )
 
-print("Cloudinary Configured:", cloudinary.config().cloud_name)
-
 
 
 
@@ -101,6 +100,18 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 600,  # every 10 min
     }
 }
+
+
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
+
 
 
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
@@ -147,6 +158,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 
 WSGI_APPLICATION = 'project_root.wsgi.application'
+ASGI_APPLICATION = "project_root.asgi.application"
 
 
 # Database

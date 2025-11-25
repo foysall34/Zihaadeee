@@ -18,3 +18,4 @@ urlpatterns = [
     path("newsfeed/", NewsFeedView.as_view(), name="newsfeed"),
 
 ]
+ 
