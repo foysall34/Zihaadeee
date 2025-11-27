@@ -3,12 +3,11 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from .models import Notification
 
-print(">>> Notification helper called!")
 
 def create_and_push_notification(receiver, sender, action_type, message,
                                  target_type=None, target_id=None, extra_data=None):
 
-    print("printing inside notification utils")
+
     
     print("=== DEBUG: create_and_push_notification CALLED ===")
     print("Receiver:", receiver)

@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'post',
     'User_Friend',
     'notification',
+    'celebrity',
     # framework 
     'rest_framework',
 ]
@@ -130,6 +131,9 @@ EMAIL_PORT = config('EMAIL_PORT', cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+STRIPE_SECRET_KEY=config('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET= config('STRIPE_WEBHOOK_SECRET')
+
 
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

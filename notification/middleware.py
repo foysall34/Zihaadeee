@@ -8,7 +8,7 @@ from urllib.parse import parse_qs
 class JWTAuthMiddleware(BaseMiddleware):
 
     async def __call__(self, scope, receive, send):
-        from django.contrib.auth.models import AnonymousUser  # safe import inside
+        from django.contrib.auth.models import AnonymousUser  
 
         query_params = parse_qs(scope["query_string"].decode())
         token = query_params.get("token", [None])[0]

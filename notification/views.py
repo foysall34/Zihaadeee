@@ -14,7 +14,6 @@ class NotificationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        print("888888888888888888888888888888")
         user = self.request.user
         print("User:", user)
         logger.info(f"[NotificationList] User: {user.id} -> Fetching notifications")
@@ -65,3 +64,6 @@ class MarkReadView(generics.UpdateAPIView):
         logger.info(f"[MarkRead] Notification {notif_id} marked as read")
 
         return Response({"id": obj.id, "is_read": obj.is_read})
+
+
+

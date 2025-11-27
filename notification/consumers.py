@@ -43,3 +43,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             print(f"[DEBUG SEND OK] Notification sent: {data}")
         except Exception as e:
             print(f"[DEBUG SEND ERROR] {e}")
+
+
+
+
+
