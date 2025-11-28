@@ -10,6 +10,7 @@ urlpatterns = [
     path("celebrity/message/send/", SendMessage.as_view()),
     path("stripe/webhook/", StripeWebhookView.as_view()),
 
+
   
 
   

@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from .models import Donation
-
-
 from .models import CelebrityProfile, Message, PaidChatAccess
 
 

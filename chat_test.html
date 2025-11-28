@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Chat Test</title>
+<style>
+  body { font-family: Arial; padding: 20px; }
+  #logs div { margin-bottom: 8px; }
+  input { padding: 6px; width: 300px; margin-bottom: 5px; }
+  button { padding: 8px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h2>Real-Time Chat Test</h2>
+
+<label>JWT Access Token:</label><br>
+<input id="token" placeholder="Paste your JWT Access Token" /><br><br>
+
+<label>Room ID:</label><br>
+<input id="room_id" placeholder="Enter Chat Room ID" /><br><br>
+
+<button id="connectBtn" type="button">Connect</button>
+
+<hr>
+
+<input id="msgBox" placeholder="Write message..." />
+<button id="sendBtn" type="button">Send</button>
+
+<hr>
+
+<div id="logs"></div>
+
+<script>
+    let socket = null;
+
+    function log(msg) {
+        document.getElementById("logs").innerHTML += `<div>${msg}</div>`;
+    }
+
+    // 🔥 ENTER চাপলেও এখন থেকে reload হবে না
+    document.getElementById("msgBox").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    document.getElementById("connectBtn").addEventListener("click", function(e) {
+        e.preventDefault();
+        const token = document.getElementById("token").value;
+        const room_id = document.getElementById("room_id").value;
+
+        socket = new WebSocket(`ws://127.0.0.1:5555/ws/chat/${room_id}/?token=${token}`);
+
+        socket.onopen = () => log("🟢 Connected!");
+        socket.onclose = () => log("🔴 WebSocket Closed");
+        socket.onerror = (e) => log("⚠️ Error: " + e);
+        socket.onmessage = (e) => log("📩 Received: " + e.data);
+    });
+
+    function sendMessage() {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            log("⚠️ WebSocket not connected");
+            return;
+        }
+        let msg = document.getElementById("msgBox").value;
+        socket.send(JSON.stringify({ type: "message", text: msg }));
+        log("📤 Sent: " + msg);
+    }
+</script>
+
+</body>
+</html>

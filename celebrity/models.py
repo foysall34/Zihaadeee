@@ -7,6 +7,13 @@ from django.utils import timezone
 
 
 
+
+
+
+
+
+
+
 class CelebrityProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 

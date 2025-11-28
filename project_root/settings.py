@@ -37,12 +37,17 @@ INSTALLED_APPS = [
     'post',
     'User_Friend',
     'notification',
-    'celebrity',
+    'celebrity.apps.CelebrityConfig',
+    'chat',
     # framework 
     'rest_framework',
 ]
+INSTALLED_APPS += ["whitenoise.runserver_nostatic"]
+
+
 
 MIDDLEWARE = [
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

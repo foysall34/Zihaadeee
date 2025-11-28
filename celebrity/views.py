@@ -245,14 +245,6 @@ class SendMessage(APIView):
 
 
 
-
-
-
-
-
-
-
-
 class CreateDonationPayment(APIView):
     permission_classes = [IsAuthenticated]
 
