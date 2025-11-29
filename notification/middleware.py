@@ -1,39 +1,54 @@
 import jwt
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from channels.middleware import BaseMiddleware
 from channels.db import database_sync_to_async
-from urllib.parse import parse_qs
+
+User = get_user_model()
+
+
+@database_sync_to_async
+def get_user(validated_token):
+    try:
+        user_id = validated_token.get("user_id")
+        return User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return None
 
 
 class JWTAuthMiddleware(BaseMiddleware):
-
     async def __call__(self, scope, receive, send):
-        from django.contrib.auth.models import AnonymousUser  
+        headers = dict(scope["headers"])
+        
+        token = None
 
-        query_params = parse_qs(scope["query_string"].decode())
-        token = query_params.get("token", [None])[0]
+        # WebSocket sends token through "Sec-WebSocket-Protocol" or query param
+        if b"sec-websocket-protocol" in headers:
+            token = headers[b"sec-websocket-protocol"].decode()
 
-        if token:
-            try:
-                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-                user = await self.get_user(payload["user_id"])
-                scope["user"] = user
-            except Exception as e:
-                print("JWT ERROR:", e)
-                scope["user"] = AnonymousUser()
-        else:
-            scope["user"] = AnonymousUser()
+        # Fallback: Token in Query String: ws://host/ws/chat/?token=xxx
+        if not token and "query_string" in scope:
+            query = scope["query_string"].decode()
+            if "token=" in query:
+                token = query.split("token=")[-1]
+
+        # If no token
+        if not token:
+            scope["user"] = None
+            return await super().__call__(scope, receive, send)
+
+        # Decode JWT
+        try:
+            validated_data = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=["HS256"]
+            )
+        except Exception:
+            scope["user"] = None
+            return await super().__call__(scope, receive, send)
+
+        # Attach user
+        scope["user"] = await get_user(validated_data)
 
         return await super().__call__(scope, receive, send)
-
-    @database_sync_to_async
-    def get_user(self, user_id):
-        from django.contrib.auth.models import AnonymousUser
-        from django.contrib.auth import get_user_model
-
-        User = get_user_model()
-
-        try:
-            return User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return AnonymousUser()

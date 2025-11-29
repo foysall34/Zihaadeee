@@ -12,7 +12,8 @@ urlpatterns = [
     path('stories/' ,  include('stories.urls')),
     path('notification/' ,  include('notification.urls')),
     path('celebrity/' , include('celebrity.urls')) ,
-    path('chat/' , include('chat.urls'))
+    path('chat/' , include('chat.urls')), 
+    path('message/' , include('message.urls'))
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

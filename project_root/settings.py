@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'notification',
     'celebrity.apps.CelebrityConfig',
     'chat',
+    'message',
     # framework 
     'rest_framework',
 ]

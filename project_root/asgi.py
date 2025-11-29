@@ -12,8 +12,9 @@ from notification.middleware import JWTAuthMiddleware
 # NOW safe to import routing
 from notification.routing import websocket_urlpatterns as notification_ws
 from chat.routing import websocket_urlpatterns as chat_ws
+from message.routing import websocket_urlpatterns as message_chat
 
-combined_websocket_routes = notification_ws + chat_ws
+combined_websocket_routes = notification_ws + chat_ws  + message_chat
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
