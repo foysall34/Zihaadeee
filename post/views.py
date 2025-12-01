@@ -74,7 +74,7 @@ class PostReactionToggleAPIView(APIView):
                 reaction_type=reaction_type
             )
 
-            # 🔔 Notification (ONLY for new reaction)
+            #  Notification (ONLY for new reaction)
             if post.author != request.user:
                 print(">>> Creating notification for post reaction **")
                 create_and_push_notification(

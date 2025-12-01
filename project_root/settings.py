@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'celebrity.apps.CelebrityConfig',
     'chat',
     'message',
+    'group_message',
+    'audio_call',
     # framework 
     'rest_framework',
 ]

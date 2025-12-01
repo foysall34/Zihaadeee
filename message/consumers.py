@@ -80,7 +80,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 
     async def handle_send_message(self, data):
-        # Validate fields
+
         if "receiver_id" not in data or "text" not in data:
             await self.send(text_data=json.dumps({
                 "action": "error",
@@ -91,7 +91,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         receiver_id = data["receiver_id"]
         text = data["text"]
 
-        # Validate receiver
+   
         try:
             receiver = await database_sync_to_async(User.objects.get)(id=receiver_id)
         except User.DoesNotExist:
@@ -101,7 +101,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        # Save message to database
         msg = await self.save_message(self.user, receiver, text)
 
         message_payload = {
@@ -122,7 +121,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             {"type": "chat_message", "message": message_payload}
         )
 
-        # Send to sender
+        
         await self.channel_layer.group_send(
             f"user_{self.user.id}",
             {"type": "chat_message", "message": message_payload}

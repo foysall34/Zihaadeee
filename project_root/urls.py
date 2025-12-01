@@ -13,7 +13,9 @@ urlpatterns = [
     path('notification/' ,  include('notification.urls')),
     path('celebrity/' , include('celebrity.urls')) ,
     path('chat/' , include('chat.urls')), 
-    path('message/' , include('message.urls'))
+    path('message/' , include('message.urls')),
+    path('group-message/' , include('group_message.urls')),
+    path('audio-call/', include('audio_call.urls'))
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

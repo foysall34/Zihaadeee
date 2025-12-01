@@ -54,7 +54,10 @@ def login_user(request):
 
     refresh = RefreshToken.for_user(user)
     return Response({
+
+        
         "message": "Login successful!",
+        "id" : user.id , 
         "email" : user.email ,
             "refresh": str(refresh),
         "access": str(refresh.access_token),
