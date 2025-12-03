@@ -1,0 +1,424 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Simple Video Call (WebRTC) — Signaling via WebSocket</title>
+  <style>
+    body { font-family: Inter, system-ui, Arial; max-width:1100px; margin:18px auto; }
+    label { display:block; margin-top:8px; font-weight:600; }
+    input[type=text] { width:100%; padding:8px; box-sizing:border-box; }
+    button { margin-top:8px; padding:8px 12px; }
+    .row { display:flex; gap:8px; margin-top:8px; align-items:center; }
+    .col { flex:1; }
+    #log { white-space:pre-wrap; background:#111; color:#bde; padding:12px; margin-top:12px; height:220px; overflow:auto; font-size:13px; }
+    .video-grid { display:flex; gap:12px; margin-top:12px; }
+    video { width:48%; background:#000; border:1px solid #444; }
+    small.note { color:#666; display:block; margin-top:6px; }
+  </style>
+</head>
+<body>
+  <h2>Simple Video Call (WebRTC) — Signaling via WebSocket</h2>
+
+  <label>WebSocket base URL (no query):</label>
+  <input id="wsBase" type="text" value="ws://localhost:8000/ws/call/" />
+
+  <label>Room ID (create random or paste an existing):</label>
+  <div class="row">
+    <input id="roomId" class="col" type="text" placeholder="room id (uuid or custom)"/>
+    <button id="genRoom">Create Random</button>
+  </div>
+
+  <label>JWT Token (add your token here):</label>
+  <input id="token" type="text" placeholder="JWT token (if required by your middleware)"/>
+
+  <div class="row">
+    <button id="connectBtn">Connect WS</button>
+    <button id="disconnectBtn" disabled>Disconnect WS</button>
+  </div>
+
+  <hr/>
+
+  <div>
+    <button id="callBtn" disabled>Call (send offer)</button>
+    <button id="acceptBtn" disabled>Accept (generate answer)</button>
+    <button id="hangupBtn" disabled>Hangup</button>
+    <button id="muteAudioBtn" disabled>Toggle Audio</button>
+    <button id="muteVideoBtn" disabled>Toggle Video</button>
+    <button id="switchCameraBtn" disabled>Switch Camera</button>
+    <button id="shareScreenBtn" disabled>Share Screen</button>
+  </div>
+  <small class="note">Tip: open two tabs, use same room id and tokens in both.</small>
+
+  <div class="video-grid">
+    <div>
+      <strong>Local</strong><br/>
+      <video id="localVideo" autoplay muted playsinline></video>
+    </div>
+    <div>
+      <strong>Remote</strong><br/>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
+  <div id="log"></div>
+
+<script>
+(function(){
+  const wsBaseEl = document.getElementById('wsBase');
+  const roomEl = document.getElementById('roomId');
+  const tokenEl = document.getElementById('token');
+  const connectBtn = document.getElementById('connectBtn');
+  const disconnectBtn = document.getElementById('disconnectBtn');
+  const callBtn = document.getElementById('callBtn');
+  const acceptBtn = document.getElementById('acceptBtn');
+  const hangupBtn = document.getElementById('hangupBtn');
+  const muteAudioBtn = document.getElementById('muteAudioBtn');
+  const muteVideoBtn = document.getElementById('muteVideoBtn');
+  const switchCameraBtn = document.getElementById('switchCameraBtn');
+  const shareScreenBtn = document.getElementById('shareScreenBtn');
+  const genRoom = document.getElementById('genRoom');
+  const logEl = document.getElementById('log');
+  const localVideo = document.getElementById('localVideo');
+  const remoteVideo = document.getElementById('remoteVideo');
+
+  let ws = null;
+  let pc = null;
+  let localStream = null;
+  let screenStream = null;
+  let isAudioMuted = false;
+  let isVideoMuted = false;
+  let isConnected = false;
+  let currentCameraDeviceId = null;
+  let cameras = [];
+
+  // ICE Servers - add TURN config for production
+  const ICE_CONFIG = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      // add TURN here if available
+      // { urls: "turn:your-turn.example:3478", username: "turnuser", credential: "turnpass" }
+    ]
+  };
+
+  function log(...args){
+    console.log(...args);
+    logEl.textContent += args.map(a=> (typeof a === 'object' ? JSON.stringify(a,null,2) : String(a))).join(' ') + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  genRoom.addEventListener('click', ()=>{
+    roomEl.value = crypto.randomUUID ? crypto.randomUUID() : 'room-' + Date.now();
+  });
+
+  connectBtn.addEventListener('click', connectWS);
+  disconnectBtn.addEventListener('click', () => { if(ws) ws.close(); });
+
+  callBtn.addEventListener('click', startCallAsCaller);
+  acceptBtn.addEventListener('click', acceptCallAsReceiver);
+  hangupBtn.addEventListener('click', hangupCall);
+  muteAudioBtn.addEventListener('click', toggleAudio);
+  muteVideoBtn.addEventListener('click', toggleVideo);
+  switchCameraBtn.addEventListener('click', switchCamera);
+  shareScreenBtn.addEventListener('click', toggleScreenShare);
+
+  // ---------- WebSocket connect ----------
+  function buildWsUrl(){
+    const base = wsBaseEl.value.trim().replace(/\/+$/,'') + '/';
+    const room = (roomEl.value || '').trim();
+    if(!room) { alert('Provide a room id or create one'); throw new Error('no room'); }
+    const token = (tokenEl.value || '').trim();
+    let url = base + encodeURIComponent(room) + '/';
+    if(token) url += '?token=' + encodeURIComponent(token);
+    return url;
+  }
+
+  async function connectWS(){
+    if(isConnected) return;
+    let url;
+    try { url = buildWsUrl(); } catch(e){ return; }
+    log('Connecting to', url);
+    ws = new WebSocket(url);
+
+    ws.onopen = async () => {
+      log('WS connected');
+      isConnected = true;
+      connectBtn.disabled = true;
+      disconnectBtn.disabled = false;
+      callBtn.disabled = false;
+      muteAudioBtn.disabled = false;
+      muteVideoBtn.disabled = false;
+      switchCameraBtn.disabled = false;
+      shareScreenBtn.disabled = false;
+      // enumerate cameras for switch
+      await enumerateDevices();
+    };
+
+    ws.onclose = (ev) => {
+      log('WS closed', ev);
+      isConnected = false;
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+      callBtn.disabled = true;
+      acceptBtn.disabled = true;
+      hangupBtn.disabled = true;
+      muteAudioBtn.disabled = true;
+      muteVideoBtn.disabled = true;
+      switchCameraBtn.disabled = true;
+      shareScreenBtn.disabled = true;
+    };
+
+    ws.onerror = (err) => { log('WS error', err); };
+
+    ws.onmessage = async (evt) => {
+      let msg;
+      try { msg = JSON.parse(evt.data); } catch(e){ log('Bad JSON', evt.data); return; }
+      log('WS recv ->', msg.type);
+      if(msg.type === 'call'){
+        log('Incoming call:', msg.payload);
+        acceptBtn.disabled = false;
+      } else if(msg.type === 'offer'){
+        await handleRemoteOffer(msg.payload);
+      } else if(msg.type === 'answer'){
+        await handleRemoteAnswer(msg.payload);
+      } else if(msg.type === 'ice-candidate'){
+        await handleRemoteIce(msg.payload);
+      } else if(msg.type === 'end_call'){
+        log('Call ended by remote');
+        cleanupCall();
+      }
+    };
+  }
+
+  // ---------- WebRTC helpers ----------
+  async function enumerateDevices(){
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      cameras = devices.filter(d => d.kind === 'videoinput');
+      if(cameras.length > 0){
+        currentCameraDeviceId = cameras[0].deviceId;
+        log('Cameras found', cameras.map(c => c.label || c.deviceId));
+        if(cameras.length > 1) switchCameraBtn.disabled = false;
+      } else {
+        log('No camera devices found');
+        switchCameraBtn.disabled = true;
+      }
+    } catch(e){
+      log('enumerateDevices error', e);
+    }
+  }
+
+  async function ensureLocalStream(deviceId = null){
+    if(localStream && !deviceId) return localStream;
+    try {
+      const constraints = { audio: true, video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' } };
+      // stop existing tracks if switching camera
+      if(localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      localVideo.srcObject = localStream;
+      log('Local media ready');
+      // reset mute flags
+      isAudioMuted = false; isVideoMuted = false;
+      muteAudioBtn.textContent = 'Toggle Audio';
+      muteVideoBtn.textContent = 'Toggle Video';
+      return localStream;
+    } catch(err){
+      log('getUserMedia error', err);
+      alert('Microphone/Camera access denied or not available.');
+      throw err;
+    }
+  }
+
+  function createPeerConnection(){
+    if(pc) return pc;
+    pc = new RTCPeerConnection(ICE_CONFIG);
+
+    pc.onicecandidate = (ev) => {
+      if(ev.candidate && ws && ws.readyState === WebSocket.OPEN){
+        ws.send(JSON.stringify({ type: 'ice-candidate', payload: ev.candidate }));
+        log('Sent local ICE candidate');
+      }
+    };
+
+    pc.ontrack = (ev) => {
+      log('Remote track event', ev);
+      remoteVideo.srcObject = ev.streams[0];
+    };
+
+    pc.onconnectionstatechange = () => {
+      log('PC state:', pc.connectionState);
+      if(pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed'){
+        cleanupCall();
+      }
+    };
+
+    return pc;
+  }
+
+  // Caller: create offer and send
+  async function startCallAsCaller(){
+    if(!isConnected) { alert('Connect WebSocket first'); return; }
+    await ensureLocalStream(currentCameraDeviceId);
+    createPeerConnection();
+    // add local tracks
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ type: 'call', payload: { message: 'incoming call' } }));
+    ws.send(JSON.stringify({ type: 'offer', payload: offer }));
+    log('Sent offer');
+    callBtn.disabled = true;
+    hangupBtn.disabled = false;
+  }
+
+  // Receiver side: handle remote offer
+  async function handleRemoteOffer(offer){
+    log('Handling remote offer...');
+    await ensureLocalStream(currentCameraDeviceId);
+    createPeerConnection();
+    await pc.setRemoteDescription(offer);
+    // add local tracks (microphone + camera)
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+    // enable Accept button for manual accept
+    acceptBtn.disabled = false;
+    window._pendingOffer = offer;
+  }
+
+  async function acceptCallAsReceiver(){
+    if(!window._pendingOffer) { alert('No pending offer'); return; }
+    createPeerConnection();
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    ws.send(JSON.stringify({ type: 'answer', payload: answer }));
+    log('Sent answer');
+    acceptBtn.disabled = true;
+    hangupBtn.disabled = false;
+    window._pendingOffer = null;
+  }
+
+  // Caller: handle answer
+  async function handleRemoteAnswer(answer){
+    if(!pc) { log('No pc exists to apply answer'); return; }
+    await pc.setRemoteDescription(answer);
+    log('Remote answer applied');
+  }
+
+  // ICE candidate from remote
+  async function handleRemoteIce(candidate){
+    if(!pc) { log('No pc yet; buffering candidate'); return; }
+    try {
+      await pc.addIceCandidate(candidate);
+      log('Added remote ICE candidate');
+    } catch(e){ log('addIceCandidate error', e); }
+  }
+
+  // Hangup / cleanup
+  function hangupCall(){
+    if(ws && ws.readyState === WebSocket.OPEN){
+      ws.send(JSON.stringify({ type: 'end_call', payload: { reason: 'hangup' } }));
+    }
+    cleanupCall();
+  }
+
+  function cleanupCall(){
+    if(pc){ try { pc.close(); } catch(e){} pc = null; }
+    if(localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; localVideo.srcObject = null; }
+    if(screenStream){ screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+    remoteVideo.srcObject = null;
+    hangupBtn.disabled = true;
+    acceptBtn.disabled = true;
+    callBtn.disabled = false;
+    log('Cleaned up call resources');
+  }
+
+  // Mute/unmute audio
+  function toggleAudio(){
+    if(!localStream) return;
+    isAudioMuted = !isAudioMuted;
+    localStream.getAudioTracks().forEach(t => t.enabled = !isAudioMuted);
+    muteAudioBtn.textContent = isAudioMuted ? 'Unmute Audio' : 'Toggle Audio';
+    log('Audio muted:', isAudioMuted);
+  }
+
+  // Mute/unmute video (stop sending track but keep local preview)
+  function toggleVideo(){
+    if(!localStream) return;
+    isVideoMuted = !isVideoMuted;
+    localStream.getVideoTracks().forEach(t => t.enabled = !isVideoMuted);
+    muteVideoBtn.textContent = isVideoMuted ? 'Unmute Video' : 'Toggle Video';
+    log('Video muted:', isVideoMuted);
+  }
+
+  // Switch camera (if multiple)
+  async function switchCamera(){
+    if(!cameras || cameras.length < 2){ log('No alternate camera'); return; }
+    // find next index
+    const idx = cameras.findIndex(c => c.deviceId === currentCameraDeviceId);
+    const next = (idx + 1) % cameras.length;
+    currentCameraDeviceId = cameras[next].deviceId;
+    log('Switching camera to', cameras[next].label || currentCameraDeviceId);
+    // recreate local stream with new deviceId
+    await ensureLocalStream(currentCameraDeviceId);
+    // replace sender tracks in pc if exists
+    if(pc){
+      const senders = pc.getSenders();
+      const videoTrack = localStream.getVideoTracks()[0];
+      for(const s of senders){
+        if(s.track && s.track.kind === 'video'){
+          try { s.replaceTrack(videoTrack); log('Replaced video sender track'); } catch(e){ log('replaceTrack error', e); }
+        }
+      }
+    }
+  }
+
+  // Screen share start/stop
+  async function toggleScreenShare(){
+    if(screenStream){
+      // stop screen share
+      screenStream.getTracks().forEach(t => t.stop());
+      screenStream = null;
+      // restore camera track if pc exists
+      if(localStream && pc){
+        const videoTrack = localStream.getVideoTracks()[0];
+        const senders = pc.getSenders();
+        for(const s of senders){
+          if(s.track && s.track.kind === 'video'){
+            try { await s.replaceTrack(videoTrack); } catch(e){ log('replaceTrack error', e); }
+          }
+        }
+      }
+      shareScreenBtn.textContent = 'Share Screen';
+      log('Screen share stopped');
+      return;
+    }
+
+    try {
+      const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      screenStream = s;
+      const screenTrack = s.getVideoTracks()[0];
+      if(pc){
+        const senders = pc.getSenders();
+        for(const sdr of senders){
+          if(sdr.track && sdr.track.kind === 'video'){
+            try { await sdr.replaceTrack(screenTrack); log('Replaced camera with screen track'); } catch(e){ log('replaceTrack error', e); }
+          }
+        }
+      } else {
+        // if no pc yet, set local preview
+        localVideo.srcObject = s;
+      }
+      shareScreenBtn.textContent = 'Stop Sharing';
+      log('Screen share started');
+      // stop when user stops sharing from browser UI
+      screenTrack.onended = () => { toggleScreenShare(); };
+    } catch(e){
+      log('getDisplayMedia error', e);
+      alert('Screen share failed or denied.');
+    }
+  }
+
+  // expose for debug
+  window._debug = { connectWS, startCallAsCaller, acceptCallAsReceiver: acceptCallAsReceiver, hangupCall, cleanupCall };
+})();
+</script>
+</body>
+</html>

@@ -77,12 +77,12 @@ class VerifyOTPSerializer(serializers.Serializer):
 class ResendOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-    def validate_email(self, value):
-        try:
-            user = User.objects.get(email=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("User not found.")
-        return value
+    # def validate_email(self, value):
+    #     try:
+    #         user = User.objects.get(email=value)
+    #     except User.DoesNotExist:
+    #         raise serializers.ValidationError("User not found.")
+    #     return value
 
     def save(self):
         user = User.objects.get(email=self.validated_data['email'])
