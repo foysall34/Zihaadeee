@@ -1,7 +1,12 @@
 from rest_framework import viewsets, permissions
-from .models import Post, Comment
-from .serializers import PostSerializer, CommentSerializer
 from cloudinary.uploader import upload
+from .models import Post
+from .serializers import PostSerializer , CommentSerializer, PostSerializerFilter
+
+from rest_framework import viewsets, permissions
+from cloudinary.uploader import upload
+from .models import Post
+from .serializers import PostSerializer
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -11,24 +16,106 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         request = self.request
-        
-        media_file = request.FILES.get("media")
-        print("Uploaded media file:", media_file)
-        media_url = None
 
-        if media_file:
-            result = upload(
-                media_file,
-                folder="posts/",
-                resource_type="auto"
-            )
-            media_url = result.get("secure_url")
+        print("USER:", request.user)
+        print("USER AUTHENTICATED:", request.user.is_authenticated)
 
-        serializer.save(
+        print("\nREQUEST DATA:")
+        print(request.data)
+
+        print("\nREQUEST FILES:")
+        print(request.FILES)
+
+        media_files = request.FILES.getlist("media_files")
+        print("\nMEDIA_FILES LIST:", media_files)
+
+        media_urls = []
+
+ 
+        if media_files:
+            print(f"\nFound {len(media_files)} files")
+            for file in media_files:
+                print("Uploading file:", file.name, "| size:", file.size)
+
+                try:
+                    result = upload(
+                        file,
+                        folder="posts/",
+                        resource_type="auto"
+                    )
+                    print("Cloudinary response:", result)
+
+                    url = result.get("secure_url")
+                    if url:
+                        media_urls.append(url)
+                        print("Saved URL:", url)
+                    else:
+                        print("No secure_url found")
+
+                except Exception as e:
+                    print("UPLOAD ERROR:", str(e))
+
+        single_media = request.FILES.get("media")
+        print("\nSingle media:", single_media)
+
+        if single_media:
+            try:
+                print("Uploading single media:", single_media.name)
+
+                result = upload(
+                    single_media,
+                    folder="posts/",
+                    resource_type="auto"
+                )
+
+                print("Cloudinary response:", result)
+
+                url = result.get("secure_url")
+                if url:
+                    media_urls.append(url)
+                    print("Saved URL:", url)
+
+            except Exception as e:
+                print("SINGLE UPLOAD ERROR:", str(e))
+
+        print("\nFINAL MEDIA URLS:")
+        print(media_urls)
+
+        post = serializer.save(
             author=request.user,
-            media=media_url
+            media=media_urls
         )
 
+        print("\nPOST CREATED:")
+        print("POST ID:", post.id)
+        print("POST AUTHOR:", post.author)
+        print("POST MEDIA:", post.media)
+        print("========== POST CREATE DEBUG END ==========\n")
+
+
+# post/views.py
+from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Post
+from .serializers import RepostCreateSerializer, PostSerializer
+
+class RepostCreateAPIView(CreateAPIView):
+    serializer_class = RepostCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['post_id'] = self.kwargs['post_id']
+        return ctx
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        repost = serializer.save()
+        data = PostSerializer(repost, context={'request': request}).data
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 
@@ -36,47 +123,79 @@ class PostViewSet(viewsets.ModelViewSet):
 
 
 
-from rest_framework import status, generics
+
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
-from .models import Post
-from .models import Comment  
-from .models import PostReaction, CommentReaction
-from .serializers import PostReactionSerializer, CommentReactionSerializer
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
-
+from .models import Post, PostReaction
+from .serializers import PostReactionSerializer
 from notification.utils import create_and_push_notification
+from .authentication import CsrfExemptJWTAuthentication
 
 
+# @method_decorator(csrf_exempt, name='dispatch')
 class PostReactionToggleAPIView(APIView):
+    authentication_classes = [CsrfExemptJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, post_id):
+        print("\n========== POST REACTION DEBUG START ==========")
+
+        print("REQUEST USER:", request.user)
+        print("USER AUTHENTICATED:", request.user.is_authenticated)
+        print("POST ID FROM URL:", post_id)
+
+        print("\nREQUEST DATA:")
+        print(request.data)
+
         post = get_object_or_404(Post, id=post_id)
+        print("POST FOUND:", post.id, "| AUTHOR:", post.author)
+
         reaction_type = request.data.get("reaction_type")
+        print("REACTION TYPE:", reaction_type)
 
         if not reaction_type:
-            return Response({"detail": "reaction_type is required"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            print("ERROR: reaction_type missing")
+            return Response(
+                {"detail": "reaction_type is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        obj = PostReaction.objects.filter(user=request.user, post=post).first()
+        obj = PostReaction.objects.filter(
+            user=request.user,
+            post=post
+        ).first()
 
-        # ---------------------------------------------
-        # CASE 1: FIRST TIME REACTION (create)
-        # ---------------------------------------------
+        print("\nEXISTING REACTION OBJ:", obj)
+
+        # CASE 1: FIRST REACTION
         if obj is None:
+            print("CASE 1 → FIRST REACTION")
+
             obj = PostReaction.objects.create(
                 user=request.user,
                 post=post,
                 reaction_type=reaction_type
             )
 
-            #  Notification (ONLY for new reaction)
+            print("REACTION CREATED:", obj.id, "| TYPE:", obj.reaction_type)
+
             if post.author != request.user:
-                print(">>> Creating notification for post reaction **")
+                print("SENDING NOTIFICATION → POST AUTHOR")
+
                 create_and_push_notification(
                     receiver=post.author,
                     sender=request.user,
@@ -84,29 +203,45 @@ class PostReactionToggleAPIView(APIView):
                     message=f"{request.user.full_name} reacted '{reaction_type}' to your post",
                     target_type="post",
                     target_id=post.id,
-                   
                 )
-                print(">>> Notification created for post reaction **")
 
-            serializer = PostReactionSerializer(obj, context={"request": request})
+            serializer = PostReactionSerializer(
+                obj, context={"request": request}
+            )
+
+            print("RESPONSE STATUS: 201 CREATED")
+            print("========== POST REACTION DEBUG END ==========\n")
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        # ---------------------------------------------
-        # CASE 2: SAME reaction → REMOVE (toggle off)
-        # ---------------------------------------------
+        # CASE 2: SAME REACTION → REMOVE
         if obj.reaction_type == reaction_type:
-            obj.delete()
-            return Response({"detail": "reaction removed"},
-                            status=status.HTTP_204_NO_CONTENT)
+            print("CASE 2 → SAME REACTION, REMOVING")
 
-        # ---------------------------------------------
-        # CASE 3: DIFFERENT reaction → UPDATE
-        # ---------------------------------------------
+            obj.delete()
+            print("REACTION REMOVED")
+
+            print("RESPONSE STATUS: 204 NO CONTENT")
+            print("========== POST REACTION DEBUG END ==========\n")
+
+            return Response(
+                {"detail": "reaction removed"},
+                status=status.HTTP_204_NO_CONTENT
+            )
+
+        # CASE 3: UPDATE REACTION
+        print("CASE 3 → UPDATE REACTION")
+        print("OLD REACTION:", obj.reaction_type)
+        print("NEW REACTION:", reaction_type)
+
         obj.reaction_type = reaction_type
         obj.save(update_fields=["reaction_type", "created_at"])
 
-        # 🔔 Notification (reaction changed)
+        print("REACTION UPDATED")
+
         if post.author != request.user:
+            print("SENDING UPDATE NOTIFICATION → POST AUTHOR")
+
             create_and_push_notification(
                 receiver=post.author,
                 sender=request.user,
@@ -114,26 +249,22 @@ class PostReactionToggleAPIView(APIView):
                 message=f"{request.user.full_name} changed reaction to '{reaction_type}'",
                 target_type="post",
                 target_id=post.id,
-                extra_data={
-                    "post_id": post.id,
-                    "image": post.media.url if post.media else None
-                }
             )
 
-        serializer = PostReactionSerializer(obj, context={"request": request})
+        serializer = PostReactionSerializer(
+            obj, context={"request": request}
+        )
+
+        print("RESPONSE STATUS: 200 OK")
+        print("========== POST REACTION DEBUG END ==========\n")
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 
 
-
-
-
-
-
-
 from notification.utils import create_and_push_notification
-
+from .models import CommentReaction
 class CommentReactionToggleAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -211,11 +342,68 @@ class CommentReactionToggleAPIView(APIView):
 
 from notification.utils import create_and_push_notification
 
+from .models import Comment
+from .serializers import CommentSerializer
+from rest_framework import viewsets, permissions
+from rest_framework import status, generics
+from .serializers import PostReactionSerializer, CommentReactionSerializer
+from rest_framework import viewsets, permissions
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Prefetch
+
+from .models import Comment
+from .serializers import CommentSerializer
+from notification.utils import create_and_push_notification
+
+
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from django.db.models import Prefetch
+
+from .models import Comment
+from .serializers import CommentSerializer
+from notification.utils import create_and_push_notification
+
+
 class CommentViewSet(viewsets.ModelViewSet):
-    queryset = Comment.objects.all().order_by('-created_at')
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+ 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def get_queryset(self):
+        """
+        GET /comments/?post=<post_id>
+
+        - only root comments (parent=None)
+        - replies handled by serializer
+        - reactions prefetched
+        """
+        queryset = (
+            Comment.objects
+            .select_related("user", "post")
+            .prefetch_related(
+                "replies",
+                "reactions",
+            )
+            .order_by("-created_at")
+        )
+
+        post_id = self.request.query_params.get("post")
+        if post_id:
+            queryset = queryset.filter(
+                post_id=post_id,
+                parent__isnull=True
+            )
+
+        return queryset
+
+    # -------- POST --------
     def perform_create(self, serializer):
         comment = serializer.save(user=self.request.user)
 
@@ -232,12 +420,12 @@ class CommentViewSet(viewsets.ModelViewSet):
                     target_id=comment.parent.id,
                     extra_data={
                         "comment_id": comment.id,
-                        "post_id": comment.post.id
+                        "post_id": comment.post.id,
                     }
                 )
             return
 
-        # CASE 2: Normal comment → send to post author
+        # CASE 2: Normal comment → notify post owner
         post_owner = comment.post.author
         if post_owner != self.request.user:
             create_and_push_notification(
@@ -250,9 +438,19 @@ class CommentViewSet(viewsets.ModelViewSet):
                 extra_data={
                     "comment_id": comment.id,
                     "post_id": comment.post.id,
-                    "image": comment.post.media.url if comment.post.media else None
+                    "image": comment.post.media[0] if comment.post.media else None,
                 }
             )
+
+    # -------- GET (single comment) --------
+    def retrieve(self, request, *args, **kwargs):
+        comment = self.get_object()
+        serializer = self.get_serializer(comment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
 
 
 
@@ -296,34 +494,39 @@ from .models import PostReaction
 from .serializers import PostSerializer
 
 
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from .models import Post
+from .serializers import PostSerializer
+
+
 class NewsFeedView(APIView):
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]   #  token
+    permission_classes = [IsAuthenticated]          # login required
 
     def get(self, request):
-      
-        following_ids = Follow.objects.filter(
-            follower=request.user
-        ).values_list("following_id", flat=True)
-
-
-        user_ids = list(following_ids) + [request.user.id]
-
 
         posts = (
-            Post.objects.filter(author__id__in=user_ids)
-            .select_related("author")              # get author in single query
-            .prefetch_related("comments")          # comments count faster
-            .prefetch_related("reactions")         # reactions count faster
-            .order_by("-created_at")               # latest first
+            Post.objects
+            .select_related("author")
+            .prefetch_related("comments")
+            .prefetch_related("reactions")
+            .order_by("-created_at")
         )
 
+
         paginator = PageNumberPagination()
-        paginator.page_size = 10 
+        paginator.page_size = 10
         result_page = paginator.paginate_queryset(posts, request)
 
-     
-        serializer = PostSerializer(result_page, many=True, context={'request': request})
-
+        serializer = PostSerializer(
+            result_page,
+            many=True,
+            context={'request': request}  
+        )
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -332,3 +535,79 @@ class NewsFeedView(APIView):
 
 
 
+
+
+
+# for filter api 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.db.models import Q
+
+from .models import Post
+from .serializers import PostSerializer
+
+class FilterPostView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        print("88888888888888888888888888")
+        content = request.query_params.get("content", None)
+        print(">>> content filter:", content)
+        author = request.query_params.get("author", None)
+        print(">>> author filter:", author)
+
+        queryset = Post.objects.all()
+
+        # Filter by content
+        if content:
+            queryset = queryset.filter(content__icontains=content)
+
+        # Filter by author (username OR email)
+        if author:
+            queryset = queryset.filter(
+                # Q(author__username__icontains=author) |
+                Q(author__email__icontains=author)
+            )
+
+        serializer = PostSerializerFilter(queryset, many=True, context={"request": request})
+        return Response({"results": serializer.data})
+
+
+
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+
+from django.contrib.auth import get_user_model
+from .models import Post
+from .serializers import UserPostSerializer
+
+User = get_user_model()
+
+
+class UserPostListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+
+        posts = Post.objects.filter(
+            author=user
+        ).order_by("-created_at")
+
+        serializer = UserPostSerializer(posts, many=True)
+
+        response_data = {
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "full_name": user.full_name,
+            },
+            "total_posts": posts.count(),
+            "posts": serializer.data
+        }
+
+        return Response(response_data)

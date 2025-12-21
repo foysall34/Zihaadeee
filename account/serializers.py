@@ -77,27 +77,40 @@ class VerifyOTPSerializer(serializers.Serializer):
 class ResendOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-    # def validate_email(self, value):
-    #     try:
-    #         user = User.objects.get(email=value)
-    #     except User.DoesNotExist:
-    #         raise serializers.ValidationError("User not found.")
-    #     return value
+    def validate_email(self, email):
+        # Check if email exists in DB
+        exists = User.objects.filter(email=email).exists()
+
+        # You can store existence result for later use if needed
+        self.context['email_exists'] = exists
+
+        # Return email anyway — NO ERROR
+        return email
 
     def save(self):
-        user = User.objects.get(email=self.validated_data['email'])
+        email = self.validated_data['email']
+
+        # Get user if exists
+        user = User.objects.filter(email=email).first()
+
+        # Generate OTP
         otp = str(random.randint(1000, 9999))
-        user.otp = otp
-        user.save()
+
+        # Save OTP only if user exists
+        if user:
+            user.otp = otp
+            user.save()
+
+        # Send OTP regardless of user existence
         send_mail(
             subject="Resend OTP",
-            message=f"Your new OTP is: {otp}",
+            message=f"Your OTP is: {otp}",
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
+            recipient_list=[email],
             fail_silently=False,
         )
-        return user
 
+        return user
 
 
 

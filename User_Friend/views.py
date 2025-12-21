@@ -114,6 +114,11 @@ class FriendRequestViewSet(viewsets.ViewSet):
 
 
 
+from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 class FriendListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -122,15 +127,23 @@ class FriendListView(APIView):
             Q(from_user=request.user, status='accepted') | 
             Q(to_user=request.user, status='accepted')
         )
+
         data = []
         for fr in friends:
             friend = fr.to_user if fr.from_user == request.user else fr.from_user
+
             data.append({
-                'id': friend.id,
-                'email': friend.email,
-                # আরো field যোগ করতে পারেন
+                "id": friend.id,
+                "email": friend.email,
+                "full_name": friend.full_name,   
+                "profile_photo": friend.profile_photo.url if friend.profile_photo else None,  
             })
+
         return Response(data)
+
+
+
+
 
 
 class UnfriendView(APIView):
@@ -282,7 +295,7 @@ class FollowView(APIView):
         follow = Follow.objects.create(follower=request.user, following_id=following_id)
         serializer = FollowSerializer(follow)
 
-        # ⭐ SEND NOTIFICATION (ONLY FOLLOW)
+        # SEND NOTIFICATION (ONLY FOLLOW)
         followed_user = follow.following
         if followed_user != request.user:
             create_and_push_notification(

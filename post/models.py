@@ -20,12 +20,19 @@ REACTION_CHOICES = [
 class Post(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='posts')
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPES, default='image')
-    media = models.URLField(blank=True, null=True) 
     content = models.TextField(blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    media = models.JSONField(null=True, blank=True)
+
+    is_repost = models.BooleanField(default=False)
+    original = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='reposts')
+    shares_count = models.PositiveIntegerField(default=0)
+
 
     def __str__(self):
-        return self.content[:30] if self.content else f"{self.media_type} Post"
+        if self.is_repost:
+            return f"Repost by {self.author.email}"
+        return self.content[:30] if self.content else "Post"
 
 
 class Comment(models.Model):

@@ -20,12 +20,23 @@ from .serializers import (
 @parser_classes([MultiPartParser, FormParser])
 def register_user(request):
     serializer = RegisterSerializer(data=request.data)
+
     if serializer.is_valid():
         user = serializer.save()
         return Response({
             "message": "Registration successful! Please verify OTP sent to your email."
         }, status=status.HTTP_201_CREATED)
+
+    # Handle email already registered issue (409)
+    if "email" in serializer.errors:
+        return Response(
+            {"error": "account already registered"},
+            status=status.HTTP_409_CONFLICT
+        )
+
+    # Default validation error
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 # ------------------- VERIFY OTP VIEW -------------------
@@ -59,7 +70,7 @@ def login_user(request):
         "message": "Login successful!",
         "id" : user.id , 
         "email" : user.email ,
-            "refresh": str(refresh),
+        "refresh": str(refresh),
         "access": str(refresh.access_token),
      
     })

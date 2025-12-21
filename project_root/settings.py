@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     # app 
+       "corsheaders",
 
     'cloudinary',
     'cloudinary_storage',
@@ -52,6 +53,7 @@ INSTALLED_APPS += ["whitenoise.runserver_nostatic"]
 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -63,6 +65,8 @@ MIDDLEWARE = [
 ]
 
 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'project_root.urls'
 
@@ -96,6 +100,10 @@ REST_FRAMEWORK = {
     ),
  
 }
+
+
+
+
 
 cloudinary.config( 
   cloud_name = config("CLOUD_NAME"), 
@@ -169,8 +177,11 @@ SIMPLE_JWT = {
 }
 CSRF_TRUSTED_ORIGINS = [
 
-    "https://tripersonal-homelessly-felecia.ngrok-free.app"
+
+    
+    "https://deposits-providers-kitty-back.trycloudflare.com"
 ]
+
 
 
 WSGI_APPLICATION = 'project_root.wsgi.application'
