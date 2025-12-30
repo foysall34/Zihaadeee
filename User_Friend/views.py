@@ -95,7 +95,7 @@ class FriendRequestViewSet(viewsets.ViewSet):
         friend_request.save()
         return Response({'detail': f'Friend request {new_status}.'}, status=status.HTTP_200_OK)
 
-    # ✅ Delete (cancel or remove) friend request
+    # Delete (cancel or remove) friend request
     def destroy(self, request, pk=None):
         try:
             friend_request = FriendRequest.objects.get(id=pk)
@@ -114,10 +114,40 @@ class FriendRequestViewSet(viewsets.ViewSet):
 
 
 
+
+from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .models import FriendRequest
+from .serializers import FriendRequestSerializer
+
+
+class IncomingFriendRequestViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        incoming_requests = FriendRequest.objects.filter(
+            to_user=request.user,
+            status="pending"
+        ).order_by("-created_at")
+
+        serializer = FriendRequestSerializer(
+            incoming_requests,
+            many=True
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from .models import FriendRequest, Follow
+
 
 class FriendListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -132,14 +162,20 @@ class FriendListView(APIView):
         for fr in friends:
             friend = fr.to_user if fr.from_user == request.user else fr.from_user
 
+            is_follow = Follow.objects.filter(
+                follower=request.user,
+                following=friend
+            ).exists()
+
             data.append({
                 "id": friend.id,
                 "email": friend.email,
-                "full_name": friend.full_name,   
-                "profile_photo": friend.profile_photo.url if friend.profile_photo else None,  
+                "full_name": friend.full_name,
+                "profile_photo": friend.profile_photo,
+                "is_follow": is_follow,   # ✅ added
             })
 
-        return Response(data)
+        return Response(data, status=200)
 
 
 
@@ -348,3 +384,77 @@ class FollowingListView(APIView):
         following = Follow.objects.filter(follower=request.user)
         serializer = FollowSerializer(following, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from django.contrib.auth import get_user_model
+from .models import FriendRequest
+
+User = get_user_model()
+
+
+class FriendSuggestionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # 🔹 My friends (accepted only)
+        my_friends_qs = FriendRequest.objects.filter(
+            Q(from_user=user, status="accepted") |
+            Q(to_user=user, status="accepted")
+        )
+
+        my_friend_ids = set()
+        for fr in my_friends_qs:
+            friend = fr.to_user if fr.from_user == user else fr.from_user
+            my_friend_ids.add(friend.id)
+
+        # 🔹 Users I already interacted with (request sent/received)
+        related_requests = FriendRequest.objects.filter(
+            Q(from_user=user) | Q(to_user=user)
+        ).values_list("from_user", "to_user")
+
+        excluded_ids = {user.id}
+        for f, t in related_requests:
+            excluded_ids.add(f)
+            excluded_ids.add(t)
+
+        # 🔹 Candidate users
+        candidates = User.objects.exclude(id__in=excluded_ids)
+
+        data = []
+        for candidate in candidates[:10]:
+
+            # candidate friends
+            candidate_friends_qs = FriendRequest.objects.filter(
+                Q(from_user=candidate, status="accepted") |
+                Q(to_user=candidate, status="accepted")
+            )
+
+            candidate_friend_ids = set()
+            for fr in candidate_friends_qs:
+                friend = fr.to_user if fr.from_user == candidate else fr.from_user
+                candidate_friend_ids.add(friend.id)
+
+            # 🔹 Mutual friends
+            mutual_ids = my_friend_ids & candidate_friend_ids
+
+            data.append({
+                "id": candidate.id,
+                "email": candidate.email,
+                "full_name": candidate.full_name,
+                "profile_photo": candidate.profile_photo,
+                "mutual_friends_count": len(mutual_ids),  # ⭐ main feature
+            })
+
+        # 🔹 Sort by highest mutual friends
+        data.sort(key=lambda x: x["mutual_friends_count"], reverse=True)
+
+        return Response(data, status=200)

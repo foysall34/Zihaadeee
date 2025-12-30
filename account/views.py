@@ -125,24 +125,31 @@ def reset_password(request):
 
 
 
+from rest_framework.views import APIView
+from rest_framework import status, permissions
+from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from cloudinary.uploader import upload as cloudinary_upload
 
+from .models import UserProfile
+from .serializers import UserProfileSerializer
+
+
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]   
+    parser_classes = [MultiPartParser, FormParser]
 
     # -------- GET Profile --------
     def get(self, request):
-        profile, created = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileSerializer(profile)
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileSerializer(profile, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # -------- PUT  --------
+    # -------- PUT (safe full/partial update) --------
     def put(self, request):
-        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
-        # handle profile_photo upload
+        # 🔹 profile_photo is on User model
         file = request.FILES.get("profile_photo")
         if file:
             upload_result = cloudinary_upload(
@@ -150,20 +157,26 @@ class UserProfileView(APIView):
                 folder="user_profiles/",
                 resource_type="auto"
             )
-            profile.profile_photo = upload_result.get("secure_url")
-            profile.save()
+            request.user.profile_photo = upload_result.get("secure_url")
+            request.user.save(update_fields=["profile_photo"])
 
-        serializer = UserProfileSerializer(profile, data=request.data)
+        serializer = UserProfileSerializer(
+            profile,
+            data=request.data,
+            partial=True,                 
+            context={"request": request}
+        )
+
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user) 
             return Response(serializer.data, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # -------- PATCH  --------
+    # -------- PATCH (partial update) --------
     def patch(self, request):
-        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
 
-        # handle profile_photo upload
         file = request.FILES.get("profile_photo")
         if file:
             upload_result = cloudinary_upload(
@@ -171,13 +184,20 @@ class UserProfileView(APIView):
                 folder="user_profiles/",
                 resource_type="auto"
             )
-            profile.profile_photo = upload_result.get("secure_url")
-            profile.save()
+            request.user.profile_photo = upload_result.get("secure_url")
+            request.user.save(update_fields=["profile_photo"])
 
-        serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+        serializer = UserProfileSerializer(
+            profile,
+            data=request.data,
+            partial=True,
+            context={"request": request}
+        )
+
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

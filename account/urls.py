@@ -1,7 +1,4 @@
-# accounts/urls.py
-
 from django.urls import path
-
 from .views import register_user, verify_otp, login_user, resend_otp , UserProfileView , forgot_password , verify_forgot_otp , reset_password
 from rest_framework_simplejwt.views import TokenRefreshView
 

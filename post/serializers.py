@@ -108,58 +108,75 @@ from User_Friend.models import Follow
 
 
 class PostSerializer(serializers.ModelSerializer):
-    content = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    author_name = serializers.CharField(source='author.full_name', read_only=True)
-    author_photo = serializers.CharField(source='author.profile_photo', read_only=True)
+    content = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True
+    )
 
-    comments_count = serializers.IntegerField(source='comments.count', read_only=True)
-    reactions_count = serializers.IntegerField(source='reactions.count', read_only=True)
+    author_name = serializers.CharField(
+        source="author.full_name",
+        read_only=True
+    )
+
+    author_photo = serializers.SerializerMethodField()
+
+    comments_count = serializers.IntegerField(
+        source="comments.count",
+        read_only=True
+    )
+
+    reactions_count = serializers.IntegerField(
+        source="reactions.count",
+        read_only=True
+    )
 
     my_reaction = serializers.SerializerMethodField()
-
-    #  new fields
     is_user = serializers.SerializerMethodField()
     is_follow = serializers.SerializerMethodField()
 
-    media = serializers.ListField(child=serializers.CharField(), required=False)
+    # ✅ ALWAYS list
+    media = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=list
+    )
+
     is_repost = serializers.BooleanField(read_only=True)
-    # original_post = serializers.SerializerMethodField()
     shares_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Post
         fields = [
-            'id',
-            'author',
-            'author_name',
-            'author_photo',
-            'content',
-            'media_type',
-            'media',
-            'created_at',
-            'comments_count',
-            'reactions_count',
-            'my_reaction',
-
-            'is_user',
-            'is_follow',
-
-            'is_repost',
-            'shares_count'
-            # 'original_post',
-
+            "id",
+            "author",
+            "author_name",
+            "author_photo",
+            "content",
+            "media_type",
+            "media",
+            "created_at",
+            "comments_count",
+            "reactions_count",
+            "my_reaction",
+            "is_user",
+            "is_follow",
+            "is_repost",
+            "shares_count",
         ]
-        read_only_fields = ['author']
-
-
-
-   
+        read_only_fields = ["author"]
 
     # -------------------------
-    # reactions
+    # Author photo
+    # -------------------------
+    def get_author_photo(self, obj):
+        return obj.author.profile_photo
+
+    # -------------------------
+    # My reaction
     # -------------------------
     def get_my_reaction(self, obj):
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return None
 
@@ -171,24 +188,22 @@ class PostSerializer(serializers.ModelSerializer):
         return reaction.reaction_type if reaction else None
 
     # -------------------------
-    # is this my post?
+    # Is my post?
     # -------------------------
     def get_is_user(self, obj):
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-
-        return obj.author == request.user
+        request = self.context.get("request")
+        return bool(
+            request and request.user.is_authenticated and obj.author == request.user
+        )
 
     # -------------------------
-    # do I follow this author?
+    # Follow check
     # -------------------------
     def get_is_follow(self, obj):
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
 
-       
         if obj.author == request.user:
             return False
 
@@ -198,24 +213,34 @@ class PostSerializer(serializers.ModelSerializer):
         ).exists()
 
     # -------------------------
-    # repost logic
+    # FORCE media=[]
     # -------------------------
-    def get_original_post(self, obj):
-        if not obj.is_repost or not obj.original:
-            return None
-
-        context = self.context.copy()
-        context['no_repost'] = True
-        return PostSerializer(obj.original, context=context).data
-
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
-        if self.context.get('no_repost'):
-            data.pop('original_post', None)
-
+        if data.get("media") is None:
+            data["media"] = []
         return data
 
+
+
+
+
+
+
+
+
+
+
+
+
+# serializers.py
+from rest_framework import serializers
+from .models import Post
+
+class VideoPostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = "__all__"
 
 
 
@@ -271,17 +296,68 @@ class PostSerializerFilter(serializers.ModelSerializer):
 
 
 from rest_framework import serializers
-from .models import Post
+from .models import Post, PostReaction
+from User_Friend.models import Follow
+
 
 class UserPostSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source="author.full_name", read_only=True)
+    author_photo = serializers.CharField(source="author.profile_photo", read_only=True)
+
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
+    reactions_count = serializers.IntegerField(source="reactions.count", read_only=True)
+
+    my_reaction = serializers.SerializerMethodField()
+    is_user = serializers.SerializerMethodField()
+    is_follow = serializers.SerializerMethodField()
+
     class Meta:
         model = Post
         fields = [
             "id",
+            "author",
+            "author_name",
+            "author_photo",
             "content",
             "media_type",
             "media",
+            "created_at",
+
+            "comments_count",
+            "reactions_count",
+            "my_reaction",
+
+            "is_user",
+            "is_follow",
+
             "is_repost",
             "shares_count",
-            "created_at",
         ]
+        read_only_fields = ["author"]
+
+    # ---------- METHODS ----------
+
+    def get_my_reaction(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+
+        reaction = obj.reactions.filter(user=request.user).first()
+        return reaction.reaction_type if reaction else None
+
+    def get_is_user(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return obj.author == request.user
+
+    def get_is_follow(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return Follow.objects.filter(
+            follower=request.user,
+            following=obj.author
+        ).exists()

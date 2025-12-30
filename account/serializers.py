@@ -199,13 +199,53 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 
 
+from rest_framework import serializers
+from .models import UserProfile
+
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    profile_photo = serializers.CharField(read_only=True)
-    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+
+
+    profile_photo = serializers.CharField(
+        source='user.profile_photo',
+        read_only=True
+    )
+    user_email = serializers.EmailField(
+        source='user.email',
+        read_only=True
+    )
+    full_name = serializers.CharField(
+        source='user.full_name',
+        read_only=True
+    )
+    gender = serializers.CharField(
+        source='user.gender',
+        read_only=True
+    )
+    role = serializers.CharField(
+        source='user.role',
+        read_only=True
+    )
 
     class Meta:
         model = UserProfile
-        fields = ['id', 'user_email', 'bio', 'cover_photo' , 'work', 'education', 'web_link' , 'home_town' , 'profile_photo', 'profile_link']
-
+        fields = [
+            'user_id',
+            'user_email',
+            'full_name',
+            'gender',
+            'role',
+            'bio',
+            'cover_photo',
+            'work',
+            'education',
+            'home_town',
+            'web_link',
+            'profile_link',
+            'profile_photo',   
+        ]
         read_only_fields = ['user', 'profile_photo']
+
+
+

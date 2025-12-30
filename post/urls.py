@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FilterPostView, PostReactionToggleAPIView, PostReactionsListView, PostViewSet, CommentViewSet  , CommentReactionToggleAPIView, CommentReactionsListView , NewsFeedView, RepostCreateAPIView, UserPostListAPIView
+from .views import FilterPostView, PostReactionToggleAPIView, PostReactionsListView, PostViewSet, CommentViewSet  , CommentReactionToggleAPIView, CommentReactionsListView , NewsFeedView, RepostCreateAPIView, UserPostListAPIView, VideoPostListView
 
 router = DefaultRouter()
 router.register(r'posts', PostViewSet, basename='post')
@@ -13,6 +13,8 @@ urlpatterns = [
     path('posts/<int:post_id>/react/', PostReactionToggleAPIView.as_view(), name='post-react'),
     path('posts/<int:post_id>/reactions/', PostReactionsListView.as_view(), name='post-reactions-list'),
     path("users/<int:user_id>/posts/",UserPostListAPIView.as_view(),name="user-post-list" ),
+    path("videos/", VideoPostListView.as_view(), name="video-post-list"),
+
     # Comments reactions
     path('comments/<int:comment_id>/react/', CommentReactionToggleAPIView.as_view(), name='comment-react'),
     path('comments/<int:comment_id>/reactions/', CommentReactionsListView.as_view(), name='comment-reactions-list'),

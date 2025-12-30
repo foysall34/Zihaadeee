@@ -1,7 +1,9 @@
 from rest_framework import viewsets, permissions
 from cloudinary.uploader import upload
+
+from account import serializers
 from .models import Post
-from .serializers import PostSerializer , CommentSerializer, PostSerializerFilter
+from .serializers import PostSerializer , CommentSerializer, PostSerializerFilter, VideoPostSerializer
 
 from rest_framework import viewsets, permissions
 from cloudinary.uploader import upload
@@ -9,88 +11,159 @@ from .models import Post
 from .serializers import PostSerializer
 
 
+from rest_framework import status
+from rest_framework.response import Response
+from cloudinary.uploader import upload
+
+
+
+
+from .models import Post
+from .serializers import PostSerializer
+
+
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from cloudinary.uploader import upload
+
+from .models import Post
+from .serializers import PostSerializer
+
+
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from cloudinary.uploader import upload
+
+from .models import Post
+from .serializers import PostSerializer
+
+
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all().order_by('-created_at')
+    queryset = Post.objects.all().order_by("-created_at")
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
+    # ---------------- CREATE ----------------
     def perform_create(self, serializer):
         request = self.request
 
-        print("USER:", request.user)
-        print("USER AUTHENTICATED:", request.user.is_authenticated)
+        media_type = request.data.get("media_type", "image")
 
-        print("\nREQUEST DATA:")
-        print(request.data)
-
-        print("\nREQUEST FILES:")
-        print(request.FILES)
-
-        media_files = request.FILES.getlist("media_files")
-        print("\nMEDIA_FILES LIST:", media_files)
+        if media_type not in ["image", "video"]:
+            raise serializers.ValidationError({
+                "media_type": "Invalid media type. Allowed: image, video."
+            })
 
         media_urls = []
 
- 
+        resource_type = "video" if media_type == "video" else "image"
+
+        # multiple files
+        media_files = request.FILES.getlist("media_files")
         if media_files:
-            print(f"\nFound {len(media_files)} files")
             for file in media_files:
-                print("Uploading file:", file.name, "| size:", file.size)
-
-                try:
-                    result = upload(
-                        file,
-                        folder="posts/",
-                        resource_type="auto"
-                    )
-                    print("Cloudinary response:", result)
-
-                    url = result.get("secure_url")
-                    if url:
-                        media_urls.append(url)
-                        print("Saved URL:", url)
-                    else:
-                        print("No secure_url found")
-
-                except Exception as e:
-                    print("UPLOAD ERROR:", str(e))
-
-        single_media = request.FILES.get("media")
-        print("\nSingle media:", single_media)
-
-        if single_media:
-            try:
-                print("Uploading single media:", single_media.name)
-
                 result = upload(
-                    single_media,
+                    file,
                     folder="posts/",
-                    resource_type="auto"
+                    resource_type=resource_type
                 )
-
-                print("Cloudinary response:", result)
-
                 url = result.get("secure_url")
                 if url:
                     media_urls.append(url)
-                    print("Saved URL:", url)
 
-            except Exception as e:
-                print("SINGLE UPLOAD ERROR:", str(e))
+        # single file
+        single_media = request.FILES.get("media")
+        if single_media:
+            result = upload(
+                single_media,
+                folder="posts/",
+                resource_type=resource_type
+            )
+            url = result.get("secure_url")
+            if url:
+                media_urls = [url]
 
-        print("\nFINAL MEDIA URLS:")
-        print(media_urls)
-
-        post = serializer.save(
+        serializer.save(
             author=request.user,
+            media_type=media_type,
             media=media_urls
         )
 
-        print("\nPOST CREATED:")
-        print("POST ID:", post.id)
-        print("POST AUTHOR:", post.author)
-        print("POST MEDIA:", post.media)
-        print("========== POST CREATE DEBUG END ==========\n")
+    # ---------------- PATCH ----------------
+    def partial_update(self, request, *args, **kwargs):
+        post = self.get_object()
+
+        if post.author != request.user:
+            return Response(
+                {"detail": "You do not have permission to edit this post"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        media_urls = post.media or []
+
+        # multiple files
+        media_files = request.FILES.getlist("media_files")
+        if media_files:
+            media_urls = []
+            for file in media_files:
+                result = upload(
+                    file,
+                    folder="posts/",
+                    resource_type="auto"
+                )
+                url = result.get("secure_url")
+                if url:
+                    media_urls.append(url)
+
+        # single file
+        single_media = request.FILES.get("media")
+        if single_media:
+            result = upload(
+                single_media,
+                folder="posts/",
+                resource_type="auto"
+            )
+            url = result.get("secure_url")
+            if url:
+                media_urls = [url]
+
+        serializer = self.get_serializer(
+            post,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(media=media_urls)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+
+from .models import Post
+from .serializers import PostSerializer
+
+
+class VideoPostListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        videos = Post.objects.filter(media_type="video").order_by("-created_at")
+        serializer = VideoPostSerializer(videos, many=True)
+        return Response({
+            "count": videos.count(),
+            "results": serializer.data
+        })
+
+
+
+
 
 
 # post/views.py

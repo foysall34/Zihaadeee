@@ -22,7 +22,8 @@ class Post(models.Model):
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPES, default='image')
     content = models.TextField(blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    media = models.JSONField(null=True, blank=True)
+    media = models.JSONField(default=list, blank=True)
+
 
     is_repost = models.BooleanField(default=False)
     original = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='reposts')

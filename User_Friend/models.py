@@ -32,15 +32,13 @@ class BlockedUser(models.Model):
     def __str__(self):
         return f"{self.blocker} blocked {self.blocked}"
 
+
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .models import BlockedUser
-
-
-
-
 
 class UnblockUserView(APIView):
     permission_classes = [IsAuthenticated]
@@ -84,3 +82,11 @@ class Follow(models.Model):
 
     def __str__(self):
         return f"{self.follower} → {self.following}"
+    
+
+
+
+
+
+
+
